@@ -44,6 +44,8 @@ class Backuper:
 
     def Run(self):        
         try:
+            self._cleanup()
+            
             os.makedirs(self._temp_dir, exist_ok=True)
             
             dump_file_path = self._create_db_dump(self._config.database)
