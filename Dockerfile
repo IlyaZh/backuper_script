@@ -17,4 +17,5 @@ COPY config.py backup.py notifier.py ./
 # Копируем пример конфига как дефолтный (на случай, если не примонтировали свой)
 COPY config.example.yaml config.yaml
 
-CMD ["python", "backup.py"]
+# CMD ["python", "backup.py"]
+CMD ["tail", "-f", "/dev/null"]
