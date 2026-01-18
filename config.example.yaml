@@ -1,0 +1,20 @@
+backup:
+  s3:
+    endpoint: "" # Will be taken from ENV
+    bucket_name: "" # Will be taken from ENV
+    region: "auto"
+    enabled: true
+
+  database:
+    enabled: true
+    container_name: "mysql"
+    db_user: "backuper"
+    dump_filename: "db_dump.sql"
+
+  targets:
+    - "www"
+    - "docker-compose.yml"
+  
+  telegram:
+    enabled: true
+    chat_id: "" # Will be taken from ENV
