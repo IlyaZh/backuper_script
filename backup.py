@@ -44,6 +44,8 @@ class Backuper:
 
     def Run(self):        
         try:
+            os.makedirs(self._temp_dir, exist_ok=True)
+            
             dump_file_path = self._create_db_dump(self._config.database)
             archive_file = self._create_archive(self._config.targets, dump_file_path)
             self._upload_to_s3(archive_file, self._config.s3)
