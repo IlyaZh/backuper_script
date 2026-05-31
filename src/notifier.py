@@ -1,7 +1,9 @@
-from abc import ABC, abstractmethod
-import config
 import os
+from abc import ABC, abstractmethod
+
 import requests
+
+from . import config
 
 class Notifier(ABC):
     @abstractmethod

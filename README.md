@@ -25,12 +25,17 @@ A lightweight backup utility for creating compressed archives of application fil
 
 ## Repository structure
 
-- `backup.py` - main backup orchestration script
-- `config.py` - Pydantic config models for backup settings
-- `notifier.py` - Telegram notification logic
-- `config.example.yaml` - sample configuration file
-- `Dockerfile` - container image definition
-- `requirements.txt` - Python dependencies
+```
+.
+├── main.py                 # Entry point for the backup script
+├── config.example.yaml     # Sample configuration file
+├── Dockerfile              # Container image definition
+├── requirements.txt        # Python dependencies
+└── src/
+    ├── backup.py          # Main backup orchestration logic
+    ├── config.py          # Pydantic config models for backup settings
+    └── notifier.py        # Telegram notification logic
+```
 
 ## Requirements
 
@@ -97,7 +102,7 @@ python -m pip install -r requirements.txt
 Run the backup script:
 
 ```bash
-python backup.py
+python main.py
 ```
 
 Ensure `config.yaml` exists and environment variables are set before execution.
@@ -124,7 +129,7 @@ docker run --rm \
   -e TELEGRAM_BOT_TOKEN="..." \
   -e TELEGRAM_CHAT_ID="..." \
   -e DB_PASSWORD="..." \
-  backuper_script python backup.py
+  backuper_script python main.py
 ```
 
 ### Notes

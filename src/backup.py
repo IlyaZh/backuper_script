@@ -1,13 +1,12 @@
 import os
-import yaml
-import tarfile
-import boto3
-import subprocess
-from datetime import datetime
 import sys
-import config
+from datetime import datetime
+
+import boto3
+import yaml
 from pydantic import BaseModel
-import notifier
+
+from . import config, notifier
 
 CONFIG_PATH = "/app/config.yaml"
 # Root folder of the project INSIDE the container (we mount it)
@@ -165,10 +164,4 @@ class Backuper:
                 except:
                     pass
 
-def main():
-    backuper = Backuper()
-    backuper.Run()
-    print("Done.")
 
-if __name__ == "__main__":
-    main()
