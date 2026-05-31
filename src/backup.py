@@ -7,10 +7,11 @@ import yaml
 
 from . import config, notifier
 from .archiver import Archiver, File
+from .db import create_database_dumper
 
 CONFIG_PATH = "/app/config.yaml"
 # Root folder of the project INSIDE the container (we mount it)
-MOUNT_ROOT = "/host_data" 
+MOUNT_ROOT = "/host_data"
 TEMP_DIR = "/tmp/backup"
 
 class Backuper:
@@ -31,10 +32,12 @@ class Backuper:
         if os.environ.get("TELEGRAM_CHAT_ID"):
             self._config.telegram.chat_id = os.environ.get("TELEGRAM_CHAT_ID")
         
-        if os.environ.get("DB_HOST"): 
-             self._config.database.container_name = os.environ.get("DB_HOST")
+        if os.environ.get("DB_HOST"):
+            for db_config in self._config.databases:
+                db_config.container_name = os.environ.get("DB_HOST")
 
         self._archiver = Archiver(temp_dir, mount_root)
+        self._db_dumpers = [create_database_dumper(db_config, temp_dir) for db_config in self._config.databases]
         self._notifier: notifier.Notifier = notifier.TelegramNotifier(self._config.telegram)
 
     def Run(self):        
@@ -43,8 +46,9 @@ class Backuper:
             
             os.makedirs(self._temp_dir, exist_ok=True)
             
-            dump_file_path = self._create_db_dump(self._config.database)
-            archive_file = self._archiver.create_archive(self._config.targets, dump_file_path)
+            dump_paths = [dumper.create_dump() for dumper in self._db_dumpers]
+            dump_paths = [path for path in dump_paths if path]
+            archive_file = self._archiver.create_archive(self._config.targets, dump_paths)
             archive_file = self._archiver.encrypt_archive(archive_file, self._config.encryption)
             self._upload_to_s3(archive_file, self._config.s3)
 
@@ -62,49 +66,6 @@ class Backuper:
             sys.exit(1)
         with open(config_path, "r") as f:
             return config.Config(**yaml.safe_load(f))
-
-    def _create_db_dump(self, db_config: config.DatabaseConfig) -> str | None:
-        if not db_config.enabled:
-            return None
-        
-        print("MySQL: Creating dump...")
-        os.makedirs(self._temp_dir, exist_ok=True)
-        dump_file = os.path.join(self._temp_dir, db_config.dump_filename)
-
-        auth_config_path = os.path.join(self._temp_dir, "mysql_auth.cnf")
-        
-        # IMPORTANT: We connect to host 'mysql' (the service name in the docker network)
-        # Password is taken from environment variable
-        password = os.environ.get("DB_PASSWORD")
-        
-        with open(auth_config_path, "w") as f:
-            f.write("[client]\n")
-            f.write(f"host={db_config.container_name}\n")
-            f.write(f"user={db_config.db_user}\n")
-            f.write(f'password="{password}"\n')
-        
-        cmd = [
-            "mysqldump",
-            f"--defaults-extra-file={auth_config_path}",
-            "--all-databases",
-            "--skip-ssl",
-            "--no-tablespaces"
-        ]
-        
-        try:
-            with open(dump_file, "w") as f:
-                subprocess.run(cmd, stdout=f, check=True)
-            print(f"MySQL: Dump created at {dump_file}")
-            return dump_file
-        except subprocess.CalledProcessError as e:
-            print(f"MySQL Error: {e}")
-            sys.exit(1)
-
-        finally:
-            if os.path.exists(auth_config_path):
-                os.remove(auth_config_path)
-
-
 
     def _upload_to_s3(self, file: File, s3_config: config.S3Config):
         print(f"S3: Uploading to bucket: {s3_config.bucket_name}")

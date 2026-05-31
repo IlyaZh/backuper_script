@@ -1,6 +1,7 @@
 import os
 import sys
 import subprocess
+import tarfile
 from datetime import datetime
 
 from pydantic import BaseModel
@@ -21,8 +22,8 @@ class Archiver:
         self._temp_dir = temp_dir
         self._mount_root = mount_root
 
-    def create_archive(self, targets: list, dump_file: str = None) -> File:
-        """Create tar.gz archive from targets and optional database dump."""
+    def create_archive(self, targets: list, dump_files: list[str] | None = None) -> File:
+        """Create tar.gz archive from targets and optional database dump files."""
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         archive_name = f"backup_{timestamp}.tar.gz"
         archive_path = os.path.join(self._temp_dir, archive_name)
@@ -30,11 +31,11 @@ class Archiver:
         print(f"Archiving: Creating {archive_name}...")
 
         with tarfile.open(archive_path, "w:gz") as tar:
-            # 1. Add database dump
-            if dump_file:
-                tar.add(dump_file, arcname=os.path.basename(dump_file))
+            if dump_files:
+                for dump_file in dump_files:
+                    print(f"  Adding database dump: {os.path.basename(dump_file)}")
+                    tar.add(dump_file, arcname=os.path.basename(dump_file))
 
-            # 2. Add project files
             for target in targets:
                 full_path = os.path.join(self._mount_root, target.lstrip("./"))
 

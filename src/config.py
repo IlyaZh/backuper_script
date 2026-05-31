@@ -8,6 +8,7 @@ class S3Config(BaseModel):
     enabled: bool
 
 class DatabaseConfig(BaseModel):
+    type: str = "mysql"
     enabled: bool
     container_name: str
     db_user: str
@@ -22,7 +23,7 @@ class EncryptionConfig(BaseModel):
 
 class BackupConfig(BaseModel):
     s3: S3Config
-    database: DatabaseConfig
+    databases: List[DatabaseConfig]
     telegram: TelegramConfig
     encryption: EncryptionConfig
     targets: List[str]

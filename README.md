@@ -60,11 +60,12 @@ backup:
     region: "auto"
     enabled: true
 
-  database:
-    enabled: true
-    container_name: "mysql"
-    db_user: "backuper"
-    dump_filename: "db_dump.sql"
+  databases:
+    - type: "mysql"
+      enabled: true
+      container_name: "mysql"
+      db_user: "backuper"
+      dump_filename: "db_dump.sql"
 
   targets:
     - "www"
