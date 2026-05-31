@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  backuper:
+    build: .
+    container_name: backuper
+    restart: no
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - /path/to/project:/host_data:ro  # Change this to your project path
+    environment:
+      - S3_ENDPOINT=${S3_ENDPOINT}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - S3_REGION=${S3_REGION:-auto}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - DB_HOST=${DB_HOST:-mysql}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - BACKUP_PASSWORD=${BACKUP_PASSWORD}  # For encryption, if enabled
+    networks:
+      - default
+
+networks:
+  default:
+    name: backup_network

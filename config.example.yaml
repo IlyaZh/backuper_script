@@ -5,11 +5,12 @@ backup:
     region: "auto"
     enabled: true
 
-  database:
-    enabled: true
-    container_name: "mysql"
-    db_user: "backuper"
-    dump_filename: "db_dump.sql"
+  databases:
+    - type: "mysql"
+      enabled: true
+      container_name: "mysql"
+      db_user: "backuper"
+      dump_filename: "db_dump.sql"
 
   targets:
     - "www"
@@ -18,3 +19,6 @@ backup:
   telegram:
     enabled: true
     chat_id: "" # Will be taken from ENV
+
+  encryption:
+    enabled: false  # Set to true and provide BACKUP_PASSWORD env var to encrypt archives into a .7z file
