@@ -4,19 +4,14 @@ from datetime import datetime
 
 import boto3
 import yaml
-from pydantic import BaseModel
 
 from . import config, notifier
+from .archiver import Archiver, File
 
 CONFIG_PATH = "/app/config.yaml"
 # Root folder of the project INSIDE the container (we mount it)
 MOUNT_ROOT = "/host_data" 
 TEMP_DIR = "/tmp/backup"
-
-class File(BaseModel):
-    path: str
-    name: str
-    size_mb: float = 0.0
 
 class Backuper:
     def __init__(self, config_path: str = CONFIG_PATH, temp_dir: str = TEMP_DIR, mount_root: str = MOUNT_ROOT):
@@ -39,6 +34,7 @@ class Backuper:
         if os.environ.get("DB_HOST"): 
              self._config.database.container_name = os.environ.get("DB_HOST")
 
+        self._archiver = Archiver(temp_dir, mount_root)
         self._notifier: notifier.Notifier = notifier.TelegramNotifier(self._config.telegram)
 
     def Run(self):        
@@ -48,7 +44,8 @@ class Backuper:
             os.makedirs(self._temp_dir, exist_ok=True)
             
             dump_file_path = self._create_db_dump(self._config.database)
-            archive_file = self._create_archive(self._config.targets, dump_file_path)
+            archive_file = self._archiver.create_archive(self._config.targets, dump_file_path)
+            archive_file = self._archiver.encrypt_archive(archive_file, self._config.encryption)
             self._upload_to_s3(archive_file, self._config.s3)
 
             self._notifier.send_success(archive_file.name, archive_file.size_mb)
@@ -107,31 +104,7 @@ class Backuper:
             if os.path.exists(auth_config_path):
                 os.remove(auth_config_path)
 
-    def _create_archive(self, targets, dump_file) -> File:
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        archive_name = f"backup_{timestamp}.tar.gz"
-        archive_path = os.path.join(self._temp_dir, archive_name)
-        
-        print(f"Archiving: Creating {archive_name}...")
-        
-        with tarfile.open(archive_path, "w:gz") as tar:
-            # 1. Add database dump
-            if dump_file:
-                tar.add(dump_file, arcname=os.path.basename(dump_file))
-            
-            # 2. Add project files
-            for target in targets:
-                full_path = os.path.join(self._mount_root, target.lstrip("./"))
-                
-                if os.path.exists(full_path):
-                    print(f"  Adding: {target}")
-                    tar.add(full_path, arcname=target)
-                else:
-                    print(f"  Warning: Path not found {full_path}")
 
-        size_mb = os.path.getsize(archive_path) / (1024 * 1024)
-                    
-        return File(path=archive_path, name=archive_name, size_mb=size_mb)
 
     def _upload_to_s3(self, file: File, s3_config: config.S3Config):
         print(f"S3: Uploading to bucket: {s3_config.bucket_name}")
@@ -154,6 +127,8 @@ class Backuper:
         except Exception as e:
             print(f"S3 Error: {e}")
             sys.exit(1)
+
+
 
     def _cleanup(self):
         print("Cleanup: Removing temp files...")

@@ -17,10 +17,14 @@ class TelegramConfig(BaseModel):
     enabled: bool = False
     chat_id: str
 
+class EncryptionConfig(BaseModel):
+    enabled: bool = False
+
 class BackupConfig(BaseModel):
     s3: S3Config
     database: DatabaseConfig
     telegram: TelegramConfig
+    encryption: EncryptionConfig
     targets: List[str]
 
 class Config(BaseModel):

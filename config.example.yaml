@@ -18,3 +18,6 @@ backup:
   telegram:
     enabled: true
     chat_id: "" # Will be taken from ENV
+
+  encryption:
+    enabled: false  # Set to true and provide BACKUP_PASSWORD env var to encrypt archives into a .7z file
