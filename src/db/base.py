@@ -19,7 +19,10 @@ class NullDatabaseDumper(DatabaseDumper):
         return None
 
 
-def create_database_dumper(db_config: config.DatabaseConfig, temp_dir: str) -> DatabaseDumper:
+def create_database_dumper(
+    db_config: config.DatabaseConfig,
+    temp_dir: str,
+) -> DatabaseDumper:
     if not db_config.enabled:
         return NullDatabaseDumper(db_config, temp_dir)
 

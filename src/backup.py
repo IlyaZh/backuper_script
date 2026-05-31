@@ -1,6 +1,5 @@
 import os
 import sys
-from datetime import datetime
 
 import boto3
 import yaml
@@ -14,47 +13,75 @@ CONFIG_PATH = "/app/config.yaml"
 MOUNT_ROOT = "/host_data"
 TEMP_DIR = "/tmp/backup"
 
+
 class Backuper:
-    def __init__(self, config_path: str = CONFIG_PATH, temp_dir: str = TEMP_DIR, mount_root: str = MOUNT_ROOT):
+    def __init__(
+        self,
+        config_path: str = CONFIG_PATH,
+        temp_dir: str = TEMP_DIR,
+        mount_root: str = MOUNT_ROOT,
+    ):
         self._temp_dir: str = temp_dir
         self._mount_root: str = mount_root
-        
+
         full_config = self._load_config(config_path)
         self._config: config.BackupConfig = full_config.backup
 
-        if os.environ.get("S3_ENDPOINT"):
-            self._config.s3.endpoint = os.environ.get("S3_ENDPOINT")
-        if os.environ.get("S3_BUCKET_NAME"):
-            self._config.s3.bucket_name = os.environ.get("S3_BUCKET_NAME")
-        if os.environ.get("S3_REGION"):
-            self._config.s3.region = os.environ.get("S3_REGION")
-        
-        if os.environ.get("TELEGRAM_CHAT_ID"):
-            self._config.telegram.chat_id = os.environ.get("TELEGRAM_CHAT_ID")
-        
-        if os.environ.get("DB_HOST"):
-            for db_config in self._config.databases:
-                db_config.container_name = os.environ.get("DB_HOST")
+        s3_endpoint = os.environ.get("S3_ENDPOINT")
+        if s3_endpoint:
+            self._config.s3.endpoint = s3_endpoint
+
+        s3_bucket_name = os.environ.get("S3_BUCKET_NAME")
+        if s3_bucket_name:
+            self._config.s3.bucket_name = s3_bucket_name
+
+        s3_region = os.environ.get("S3_REGION")
+        if s3_region:
+            self._config.s3.region = s3_region
+
+        telegram_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+        if telegram_chat_id:
+            self._config.telegram.chat_id = telegram_chat_id
 
         self._archiver = Archiver(temp_dir, mount_root)
-        self._db_dumpers = [create_database_dumper(db_config, temp_dir) for db_config in self._config.databases]
-        self._notifier: notifier.Notifier = notifier.TelegramNotifier(self._config.telegram)
+        self._db_dumpers = [
+            create_database_dumper(db_config, temp_dir)
+            for db_config in self._config.databases
+        ]
+        self._notifier: notifier.Notifier = (
+            notifier.TelegramNotifier(self._config.telegram)
+        )
 
-    def Run(self):        
+    def Run(self) -> None:
         try:
             self._cleanup()
-            
-            os.makedirs(self._temp_dir, exist_ok=True)
-            
-            dump_paths = [dumper.create_dump() for dumper in self._db_dumpers]
-            dump_paths = [path for path in dump_paths if path]
-            archive_file = self._archiver.create_archive(self._config.targets, dump_paths)
-            archive_file = self._archiver.encrypt_archive(archive_file, self._config.encryption)
-            self._upload_to_s3(archive_file, self._config.s3)
 
-            self._notifier.send_success(archive_file.name, archive_file.size_mb)
+            os.makedirs(self._temp_dir, exist_ok=True)
+
+            dump_paths: list[str | None] = [
+                dumper.create_dump() for dumper in self._db_dumpers
+            ]
+            dump_paths = [path for path in dump_paths if path is not None]
+            archive_file = self._archiver.create_archive(
+                self._config.targets,
+                dump_paths,
+            )
+            archive_file = self._archiver.encrypt_archive(
+                archive_file,
+                self._config.encryption,
+            )
+            self._upload_to_s3(
+                archive_file,
+                self._config.s3,
+            )
+
+            self._notifier.send_success(
+                archive_file.name,
+                archive_file.size_mb,
+            )
         except Exception as e:
-            print(f"CRITICAL ERROR: {e}")
+            error_text = f"CRITICAL ERROR: {e}"
+            print(error_text)
             self._notifier.send_error(str(e))
             sys.exit(1)
         finally:
@@ -67,21 +94,21 @@ class Backuper:
         with open(config_path, "r") as f:
             return config.Config(**yaml.safe_load(f))
 
-    def _upload_to_s3(self, file: File, s3_config: config.S3Config):
+    def _upload_to_s3(self, file: File, s3_config: config.S3Config) -> None:
         print(f"S3: Uploading to bucket: {s3_config.bucket_name}")
         if not s3_config.enabled:
             print("S3: Upload skipped (disabled in config).")
             return
-        
+
         session = boto3.session.Session()
         s3 = session.client(
             service_name='s3',
             endpoint_url=s3_config.endpoint,
             aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
             aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
-            region_name=s3_config.region
+            region_name=s3_config.region,
         )
-        
+
         try:
             s3.upload_file(file.path, s3_config.bucket_name, file.name)
             print("S3: Upload successful!")
@@ -89,15 +116,11 @@ class Backuper:
             print(f"S3 Error: {e}")
             sys.exit(1)
 
-
-
-    def _cleanup(self):
+    def _cleanup(self) -> None:
         print("Cleanup: Removing temp files...")
         if os.path.exists(self._temp_dir):
-            for f in os.listdir(self._temp_dir):
+            for entry_name in os.listdir(self._temp_dir):
                 try:
-                    os.remove(os.path.join(self._temp_dir, f))
-                except:
+                    os.remove(os.path.join(self._temp_dir, entry_name))
+                except OSError:
                     pass
-
-

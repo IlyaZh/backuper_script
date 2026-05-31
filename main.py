@@ -1,7 +1,7 @@
 from src.backup import Backuper
 
 
-def main():
+def main() -> None:
     backuper = Backuper()
     backuper.Run()
     print("Done.")

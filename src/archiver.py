@@ -1,8 +1,9 @@
 import os
-import sys
 import subprocess
+import sys
 import tarfile
 from datetime import datetime
+from typing import Sequence
 
 from pydantic import BaseModel
 
@@ -15,6 +16,9 @@ class File(BaseModel):
     size_mb: float = 0.0
 
 
+PathSequence = Sequence[str]
+
+
 class Archiver:
     """Handles archive creation and encryption."""
 
@@ -22,8 +26,12 @@ class Archiver:
         self._temp_dir = temp_dir
         self._mount_root = mount_root
 
-    def create_archive(self, targets: list, dump_files: list[str] | None = None) -> File:
-        """Create tar.gz archive from targets and optional database dump files."""
+    def create_archive(
+        self,
+        targets: PathSequence,
+        dump_files: PathSequence | None = None,
+    ) -> File:
+        """Create a tar.gz archive from targets and database dumps."""
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         archive_name = f"backup_{timestamp}.tar.gz"
         archive_path = os.path.join(self._temp_dir, archive_name)
@@ -33,11 +41,15 @@ class Archiver:
         with tarfile.open(archive_path, "w:gz") as tar:
             if dump_files:
                 for dump_file in dump_files:
-                    print(f"  Adding database dump: {os.path.basename(dump_file)}")
-                    tar.add(dump_file, arcname=os.path.basename(dump_file))
+                    dump_name = os.path.basename(dump_file)
+                    print(f"  Adding database dump: {dump_name}")
+                    tar.add(dump_file, arcname=dump_name)
 
             for target in targets:
-                full_path = os.path.join(self._mount_root, target.lstrip("./"))
+                full_path = os.path.join(
+                    self._mount_root,
+                    target.lstrip("./"),
+                )
 
                 if os.path.exists(full_path):
                     print(f"  Adding: {target}")
@@ -47,9 +59,17 @@ class Archiver:
 
         size_mb = os.path.getsize(archive_path) / (1024 * 1024)
 
-        return File(path=archive_path, name=archive_name, size_mb=size_mb)
+        return File(
+            path=archive_path,
+            name=archive_name,
+            size_mb=size_mb,
+        )
 
-    def encrypt_archive(self, file: File, encryption_config: config.EncryptionConfig) -> File:
+    def encrypt_archive(
+        self,
+        file: File,
+        encryption_config: config.EncryptionConfig,
+    ) -> File:
         """Encrypt archive using 7z AES-256 encryption."""
         if not encryption_config.enabled:
             return file
@@ -59,13 +79,18 @@ class Archiver:
             print("Error: Encryption enabled but BACKUP_PASSWORD not set")
             sys.exit(1)
 
-        print(f"Encryption: Encrypting {file.name} with 7z password protection...")
+        encrypt_message = (
+            f"Encryption: Encrypting {file.name} "
+            "with 7z password protection..."
+        )
+        print(encrypt_message)
 
         encrypted_path = os.path.splitext(file.path)[0] + ".7z"
 
         try:
             cmd = [
-                "7z", "a",
+                "7z",
+                "a",
                 "-t7z",
                 f"-p{password}",
                 "-mhe=on",
@@ -85,4 +110,8 @@ class Archiver:
         os.remove(file.path)
 
         size_mb = os.path.getsize(encrypted_path) / (1024 * 1024)
-        return File(path=encrypted_path, name=os.path.basename(encrypted_path), size_mb=size_mb)
+        return File(
+            path=encrypted_path,
+            name=os.path.basename(encrypted_path),
+            size_mb=size_mb,
+        )

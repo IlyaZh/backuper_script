@@ -2,7 +2,6 @@ import os
 import subprocess
 from typing import Optional
 
-from .. import config
 from .base import DatabaseDumper
 
 
@@ -17,9 +16,9 @@ class MySQLDumper(DatabaseDumper):
         dump_file = os.path.join(self._temp_dir, self._config.dump_filename)
         auth_config_path = os.path.join(self._temp_dir, "mysql_auth.cnf")
 
-        password = os.environ.get("DB_PASSWORD")
+        password = os.environ.get("DB_PASSWORD", "")
 
-        with open(auth_config_path, "w") as auth_file:
+        with open(auth_config_path, "w", encoding="utf-8") as auth_file:
             auth_file.write("[client]\n")
             auth_file.write(f"host={self._config.container_name}\n")
             auth_file.write(f"user={self._config.db_user}\n")

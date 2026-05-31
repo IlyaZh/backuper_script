@@ -5,14 +5,16 @@ import requests
 
 from . import config
 
+
 class Notifier(ABC):
     @abstractmethod
     def send_success(self, archive_name: str, file_size_mb: float) -> None:
         pass
 
     @abstractmethod
-    def send_error(self, error_message: str) -> None:  
+    def send_error(self, error_message: str) -> None:
         pass
+
 
 class TelegramNotifier(Notifier):
     def __init__(self, cfg: config.TelegramConfig):
@@ -24,10 +26,10 @@ class TelegramNotifier(Notifier):
             return
 
         message = (
-            f"✅ <b>Backup Successful!</b>\n\n"
+            "✅ <b>Backup Successful!</b>\n\n"
             f"📦 <b>File:</b> {archive_name}\n"
             f"💾 <b>Size:</b> {file_size_mb:.2f} MB\n"
-            f"☁️ <b>Storage:</b> Cloudflare R2"
+            "☁️ <b>Storage:</b> Cloudflare R2"
         )
         self._send(message)
 
@@ -45,11 +47,14 @@ class TelegramNotifier(Notifier):
         if not self._config.enabled:
             return False
         if not self._token:
-            print("Warning: Telegram enabled in config, but TELEGRAM_BOT_TOKEN is missing.")
+            print(
+                "Warning: Telegram enabled in config, but "
+                "TELEGRAM_BOT_TOKEN is missing."
+            )
             return False
         return True
 
-    def _send(self, text: str):
+    def _send(self, text: str) -> None:
         url = f"https://api.telegram.org/bot{self._token}/sendMessage"
         payload = {
             "chat_id": self._config.chat_id,
