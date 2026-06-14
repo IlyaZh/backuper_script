@@ -2,7 +2,10 @@ version: '3.8'
 
 services:
   backuper:
+    # To build locally, keep the line below:
     build: .
+    # To pull the prebuilt image from GHCR, comment 'build: .' and uncomment the line below:
+    # image: ghcr.io/<your-github-username-or-org>/backuper_script:latest
     container_name: backuper
     restart: no
     volumes:

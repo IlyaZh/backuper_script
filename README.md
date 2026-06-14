@@ -181,18 +181,27 @@ cp .env.example .env
 # Edit .env with your S3, Telegram, and database credentials
 ```
 
-2. Update `docker-compose.yml` and set your project path in the volume mount:
+2. Update `docker-compose.yml` to set your project path in the volume mount. 
 
-```yaml
-volumes:
-  - /path/to/your/project:/host_data:ro  # Change this path
-```
+   Optionally, instead of building the image locally, you can use the prebuilt image published to GitHub Container Registry (GHCR):
+   ```yaml
+   services:
+     backuper:
+       # Comment build and uncomment image:
+       # image: ghcr.io/<your-github-username-or-org>/backuper_script:latest
+   ```
 
 3. Run backup:
 
-```bash
-docker compose run --rm backuper python main.py
-```
+   - **If building locally:**
+     ```bash
+     docker compose run --rm backuper python main.py
+     ```
+   - **If using the prebuilt GHCR image:**
+     ```bash
+     docker compose pull backuper
+     docker compose run --rm backuper
+     ```
 
 4. **Schedule with Cron:**
 
@@ -209,13 +218,7 @@ The script will run daily at 2:00 AM and load environment variables from `.env`.
 
 ### Option 2: Manual Docker Run
 
-Build the image:
-
-```bash
-docker build -t backuper_script .
-```
-
-Run the container with mounted config and data:
+You can run the backup script using the prebuilt image from GHCR directly:
 
 ```bash
 docker run --rm \
@@ -230,7 +233,7 @@ docker run --rm \
   -e TELEGRAM_CHAT_ID="..." \
   -e DB_PASSWORD="..." \
   -e BACKUP_PASSWORD="..." \
-  backuper_script python main.py
+  ghcr.io/<your-github-username-or-org>/backuper_script:latest
 ```
 
 ### Notes
