@@ -11,10 +11,12 @@ backup:
       container_name: "mysql"
       db_user: "backuper"
       dump_filename: "db_dump.sql"
+      weekdays: ["mon", "wed", "fri"] # Optional: days of week to backup. If omitted, backups up every day.
 
   targets:
-    - "www"
-    - "docker-compose.yml"
+    - path: "www"
+      weekdays: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] # Optional: days of week to backup.
+    - path: "docker-compose.yml" # Runs every day if weekdays omitted
   
   telegram:
     enabled: true

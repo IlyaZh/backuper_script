@@ -9,6 +9,7 @@ A lightweight backup utility for creating compressed archives of application fil
 - [Requirements](#requirements)
 - [Configuration](#configuration)
 - [Environment variables](#environment-variables)
+- [Encryption](#encryption)
 - [Running locally](#running-locally)
 - [Docker usage](#docker-usage)
 - [Customization](#customization)
@@ -66,10 +67,12 @@ backup:
       container_name: "mysql"
       db_user: "backuper"
       dump_filename: "db_dump.sql"
+      weekdays: ["mon", "wed", "fri"] # Optional: days of week to backup. If omitted, backups up every day.
 
   targets:
-    - "www"
-    - "docker-compose.yml"
+    - path: "www"
+      weekdays: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] # Optional: days of week to backup.
+    - path: "docker-compose.yml" # Runs every day if weekdays omitted
 
   telegram:
     enabled: true
@@ -99,6 +102,57 @@ The script reads several environment values to support flexible deployment:
 - `DB_PASSWORD` - MySQL user password for `mysqldump`
 - `DB_HOST` - optional override for the MySQL container hostname
 - `BACKUP_PASSWORD` - password for archive encryption (if encryption is enabled, the final archive becomes `.7z`)
+
+## Encryption
+
+The backup script supports optional AES-256 encryption using 7-Zip. When enabled, the unencrypted `.tar.gz` archive is placed inside a password-protected `.7z` container, and the original `.tar.gz` file is deleted.
+
+### How to Enable Encryption
+
+1. **Update Configuration:**
+   In your `config.yaml` file, set `enabled` to `true` in the `encryption` block:
+   ```yaml
+   backup:
+     ...
+     encryption:
+       enabled: true
+   ```
+
+2. **Set the Password:**
+   Define the `BACKUP_PASSWORD` environment variable. 
+   - If running with **Docker Compose**, add it to your `.env` file:
+     ```env
+     BACKUP_PASSWORD=your-secure-password
+     ```
+   - If running **manually**, pass it via the `-e` flag to `docker run`:
+     ```bash
+     -e BACKUP_PASSWORD="your-secure-password"
+     ```
+
+### Encryption Details
+
+- **Algorithm:** AES-256.
+- **Header Encryption:** Enabled (`-mhe=on`). This means that file names and metadata inside the `.7z` archive are encrypted as well. You cannot view the file names inside the archive without entering the password.
+- **Output Extension:** The resulting file will have a `.tar.7z` extension (e.g., `backup_2026-06-14_12-00-00.tar.7z`).
+
+### How to Decrypt and Extract Backups
+
+Since the archive uses double wrapping (the `.tar.gz` is wrapped in `.7z`), you need to decrypt it and then extract the files.
+
+#### Step 1: Decrypt the `.7z` archive
+Run `7z` to extract the `.tar.gz` file from the encrypted `.7z` container:
+```bash
+7z x backup_2026-06-14_12-00-00.tar.7z
+```
+*You will be prompted to enter the password.*
+
+This will extract the unencrypted compressed file: `backup_2026-06-14_12-00-00.tar.gz`.
+
+#### Step 2: Extract the `.tar.gz` file
+Run the standard `tar` command to extract the contents:
+```bash
+tar -xzf backup_2026-06-14_12-00-00.tar.gz
+```
 
 ## Running locally
 
@@ -188,7 +242,8 @@ docker run --rm \
 
 ## Customization
 
-- Add or remove paths in `backup.targets` to control what files/directories are included
+- Add, modify or remove paths in `backup.targets` to control what files/directories are included. Note that each target is structured: `{ path: "...", weekdays: [...] }`.
+- **Scheduled Backups (Weekdays Mask)**: Limit backups of specific databases and target directories to certain days of the week by adding the `weekdays` parameter (e.g., `["mon", "wed", "fri"]`). If the `weekdays` parameter is omitted, it defaults to backing up every day.
 - Disable database backup by setting `backup.database.enabled: false`
 - Disable notifications by setting `backup.telegram.enabled: false`
 - Disable S3 upload by setting `backup.s3.enabled: false`

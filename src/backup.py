@@ -1,5 +1,6 @@
 import os
 import sys
+from datetime import datetime
 
 import boto3
 import yaml
@@ -12,6 +13,18 @@ CONFIG_PATH = "/app/config.yaml"
 # Root folder of the project INSIDE the container (we mount it)
 MOUNT_ROOT = "/host_data"
 TEMP_DIR = "/tmp/backup"
+
+
+def should_run_today(weekdays: list[str] | None) -> bool:
+    if not weekdays:
+        return True
+
+    # 0 = Monday, ..., 6 = Sunday
+    days_map = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+    today_name = days_map[datetime.now().weekday()]
+
+    normalized_weekdays = [w.strip().lower()[:3] for w in weekdays]
+    return today_name in normalized_weekdays
 
 
 class Backuper:
@@ -44,10 +57,6 @@ class Backuper:
             self._config.telegram.chat_id = telegram_chat_id
 
         self._archiver = Archiver(temp_dir, mount_root)
-        self._db_dumpers = [
-            create_database_dumper(db_config, temp_dir)
-            for db_config in self._config.databases
-        ]
         self._notifier: notifier.Notifier = (
             notifier.TelegramNotifier(self._config.telegram)
         )
@@ -56,14 +65,31 @@ class Backuper:
         try:
             self._cleanup()
 
+            today_databases = [
+                db_config for db_config in self._config.databases
+                if should_run_today(db_config.weekdays)
+            ]
+            today_targets = [
+                target.path for target in self._config.targets
+                if should_run_today(target.weekdays)
+            ]
+
+            if not today_databases and not today_targets:
+                print("No targets or databases scheduled for backup today.")
+                return
+
             os.makedirs(self._temp_dir, exist_ok=True)
 
+            db_dumpers = [
+                create_database_dumper(db_config, self._temp_dir)
+                for db_config in today_databases
+            ]
             dump_paths: list[str | None] = [
-                dumper.create_dump() for dumper in self._db_dumpers
+                dumper.create_dump() for dumper in db_dumpers
             ]
             dump_paths = [path for path in dump_paths if path is not None]
             archive_file = self._archiver.create_archive(
-                self._config.targets,
+                today_targets,
                 dump_paths,
             )
             archive_file = self._archiver.encrypt_archive(

@@ -15,6 +15,7 @@ class DatabaseConfig(BaseModel):
     container_name: str
     db_user: str
     dump_filename: str
+    weekdays: List[str] | None = None
 
 
 class TelegramConfig(BaseModel):
@@ -26,12 +27,17 @@ class EncryptionConfig(BaseModel):
     enabled: bool = False
 
 
+class TargetConfig(BaseModel):
+    path: str
+    weekdays: List[str] | None = None
+
+
 class BackupConfig(BaseModel):
     s3: S3Config
     databases: List[DatabaseConfig]
     telegram: TelegramConfig
     encryption: EncryptionConfig
-    targets: List[str]
+    targets: List[TargetConfig]
 
 
 class Config(BaseModel):
