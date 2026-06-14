@@ -36,7 +36,7 @@ class BackupConfig(BaseModel):
     s3: S3Config
     databases: List[DatabaseConfig]
     telegram: TelegramConfig
-    encryption: EncryptionConfig
+    encryption: EncryptionConfig = EncryptionConfig()
     targets: List[TargetConfig]
 
 
