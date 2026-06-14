@@ -1,3 +1,4 @@
+import io
 import os
 import subprocess
 import sys
@@ -56,6 +57,34 @@ class Archiver:
                     tar.add(full_path, arcname=target)
                 else:
                     print(f"  Warning: Path not found {full_path}")
+
+            # Create backup_info.txt in-memory and add to tar
+            info_lines = [
+                f"Backup Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                f"Backup Weekday: {datetime.now().strftime('%A')}",
+                "",
+                "Targets included:",
+            ]
+            if targets:
+                for target in targets:
+                    info_lines.append(f"  - {target}")
+            else:
+                info_lines.append("  (none)")
+
+            info_lines.append("")
+            info_lines.append("Database dumps included:")
+            if dump_files:
+                for dump_file in dump_files:
+                    info_lines.append(f"  - {os.path.basename(dump_file)}")
+            else:
+                info_lines.append("  (none)")
+
+            info_content = "\n".join(info_lines)
+            info_bytes = info_content.encode("utf-8")
+
+            info_tar = tarfile.TarInfo(name="backup_info.txt")
+            info_tar.size = len(info_bytes)
+            tar.addfile(info_tar, io.BytesIO(info_bytes))
 
         size_mb = os.path.getsize(archive_path) / (1024 * 1024)
 
