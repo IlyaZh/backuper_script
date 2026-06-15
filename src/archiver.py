@@ -11,6 +11,8 @@ from pydantic import BaseModel
 from . import config
 
 
+
+
 class File(BaseModel):
     path: str
     name: str
@@ -31,7 +33,7 @@ class Archiver:
         self,
         targets: PathSequence,
         dump_files: PathSequence | None = None,
-    ) -> File:
+    ) -> File | None:
         """Create a tar.gz archive from targets and database dumps."""
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         archive_name = f"backup_{timestamp}.tar.gz"
@@ -39,12 +41,14 @@ class Archiver:
 
         print(f"Archiving: Creating {archive_name}...")
 
+        added_count = 0
         with tarfile.open(archive_path, "w:gz") as tar:
             if dump_files:
                 for dump_file in dump_files:
                     dump_name = os.path.basename(dump_file)
                     print(f"  Adding database dump: {dump_name}")
                     tar.add(dump_file, arcname=dump_name)
+                    added_count += 1
 
             for target in targets:
                 full_path = os.path.join(
@@ -55,8 +59,13 @@ class Archiver:
                 if os.path.exists(full_path):
                     print(f"  Adding: {target}")
                     tar.add(full_path, arcname=target)
+                    added_count += 1
                 else:
                     print(f"  Warning: Path not found {full_path}")
+
+            if added_count == 0:
+                print("No files or databases were found/added to the backup.")
+                return None
 
             # Create backup_info.txt in-memory and add to tar
             info_lines = [
@@ -86,7 +95,12 @@ class Archiver:
             info_tar.size = len(info_bytes)
             tar.addfile(info_tar, io.BytesIO(info_bytes))
 
-        size_mb = os.path.getsize(archive_path) / (1024 * 1024)
+        size_bytes = os.path.getsize(archive_path)
+        if size_bytes == 0:
+            print("Created backup archive is empty (0 bytes).")
+            return None
+
+        size_mb = size_bytes / (1024 * 1024)
 
         return File(
             path=archive_path,
