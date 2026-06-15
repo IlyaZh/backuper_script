@@ -92,6 +92,10 @@ class Backuper:
                 today_targets,
                 dump_paths,
             )
+            if archive_file is None:
+                print("Exiting backup process safely (nothing to backup).")
+                return
+
             archive_file = self._archiver.encrypt_archive(
                 archive_file,
                 self._config.encryption,
